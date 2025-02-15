@@ -1,0 +1,101 @@
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+from template_generation import instruction_prompts  
+from cipher_utils import caesar_cipher, pig_latin_cipher  # Import encryption functions
+
+
+def load_model(model_name):
+    """Loads the open-source model and tokenizer."""
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
+    return tokenizer, model
+
+
+def translate_with_llm(input_text, model_name, translation_type):
+    """Sends text to an open-source model for translation using chat template."""
+    tokenizer, model = load_model(model_name)
+
+    model_device = next(model.parameters()).device
+
+    messages = [
+        {"role": "system", "content": instruction_prompts[translation_type]["system"]},
+        {"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}
+    ]
+
+    # Apply chat template for proper formatting
+    tokenized_chat = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_tensors="pt",
+        padding=True
+    ).to(model_device)
+
+    # Generate response
+    outputs = model.generate(
+        tokenized_chat,
+        max_new_tokens=100,
+        do_sample=False
+    )
+
+    translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return translated_text
+
+
+def evaluate_translation(original_text, translated_text, translation_type, shift=3):
+    """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation."""
+    if "caesar" in translation_type:
+        expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
+    else:
+        expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
+
+    # Convert to lowercase to ignore case differences
+    is_correct = expected_output.strip().lower() in translated_text.strip().lower()
+    
+    return is_correct, expected_output
+
+
+
+if __name__ == "__main__":
+    model_name = "meta-llama/Llama-3.1-8B-Instruct"  # Use IT model with safety alignment
+
+    # **Example 1: Translate natural language to Caesar Cipher**
+    original_text = "Meet me at the park at midnight."
+    ciphered_text = translate_with_llm(original_text, model_name, "plain_to_caesar")
+    print("Original Input:", original_text)
+    print("Caesar Cipher Output:", ciphered_text)
+    correct, expected = evaluate_translation(original_text, ciphered_text, "plain_to_caesar")
+    print("Correct Translation:", correct)
+    if not correct:
+        print("Expected Output:", expected)
+
+    # **Example 2: Translate Caesar Cipher back to natural language**
+    caesar_text = "PHHW PH DW WKH SDUN DW PLGQLJKW."
+    decoded_text = translate_with_llm(caesar_text, model_name, "caesar_to_plain")
+    print("Ciphered Input:", caesar_text)
+    print("Decoded Output:", decoded_text)
+    correct, expected = evaluate_translation(caesar_text, decoded_text, "caesar_to_plain")
+    print("Correct Translation:", correct)
+    if not correct:
+        print("Expected Output:", expected)
+
+    # **Example 3: Translate natural language to Pig Latin**
+    original_pig_text = "Hello world this is Pig Latin"
+    pig_latin_text = translate_with_llm(original_pig_text, model_name, "plain_to_pig_latin")
+    print("Original Input:", original_pig_text)
+    print("Pig Latin Output:", pig_latin_text)
+    correct, expected = evaluate_translation(original_pig_text, pig_latin_text, "plain_to_pig_latin")
+    print("Correct Translation:", correct)
+    if not correct:
+        print("Expected Output:", expected)
+
+    # **Example 4: Translate Pig Latin back to natural language**
+    pig_latin_input = "Ellohay orldway isthay isay Igpay Atinlay"
+    plain_text = translate_with_llm(pig_latin_input, model_name, "pig_latin_to_plain")
+    print("Pig Latin Input:", pig_latin_input)
+    print("Decoded Output:", plain_text)
+    correct, expected = evaluate_translation(pig_latin_input, plain_text, "pig_latin_to_plain")
+    print("Correct Translation:", correct)
+    if not correct:
+        print("Expected Output:", expected)
