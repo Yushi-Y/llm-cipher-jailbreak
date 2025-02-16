@@ -15,11 +15,13 @@ def caesar_cipher(text, shift=3, decrypt=False):
     return ''.join(shift_char(c) for c in text)
 
 
+
+
 def pig_latin_cipher(text, decrypt=False):
     """Enciphers or deciphers text using Pig Latin.
     
     - Encryption: Moves the first consonant cluster to the end and adds "-ay".
-    - Decryption: Moves the last consonant cluster back to the beginning and removes "-ay".
+    - Decryption: Restores the original word from Pig Latin.
     
     Args:
         text (str): The input text to encrypt or decrypt.
@@ -42,24 +44,46 @@ def pig_latin_cipher(text, decrypt=False):
         
         return word + "ay"  # If no vowels, return unchanged with "ay"
 
-    def pig_latin_word_decrypt(word):
-        """Converts a Pig Latin word back to English."""
-        if not word.endswith("ay"):
-            return word  # If not Pig Latin, return unchanged
-        
-        word = word[:-2]  # Remove "ay" at the end
-        
-        # Find last consonant cluster before a vowel
-        for i in range(len(word) - 1, -1, -1):
-            if word[i] in "AEIOUaeiou":
-                return word[i:] + word[:i]  # Move last consonant cluster back
 
-        return word  # If no vowels, return as-is
+### THIS IS INCORRECT ###
+#     def pig_latin_word_decrypt(word):
+#         """Converts a Pig Latin word back to English."""
+#         if not word.endswith("ay"):
+#             return word  # If not Pig Latin, return unchanged
+        
+#         word = word[:-2]  # Remove "ay" at the end
+
+#         # Handle words that originally started with vowels
+#         if word[-1] in "AEIOUaeiou":
+#             return word  
+
+#         # Find consonant cluster moved to end and restore it to front
+#         consonant_cluster = ""
+#         for i in range(len(word) - 1, -1, -1):
+#             if word[i] in "AEIOUaeiou":
+#                 break
+#             consonant_cluster = word[i] + consonant_cluster  # Build consonant cluster
+        
+#         return consonant_cluster + word[:-len(consonant_cluster)]  # Move consonants back
 
     words = text.split()
-    transformed_words = [
-        pig_latin_word_decrypt(word) if decrypt else pig_latin_word_encrypt(word)
-        for word in words
-    ]
+    transformed_words = []
+
+    for word in words:
+        # Preserve punctuation
+        prefix = ''.join(c for c in word if c in string.punctuation)
+        suffix = ''.join(c for c in reversed(word) if c in string.punctuation)
+        stripped_word = word.strip(string.punctuation)
+
+        transformed_word = pig_latin_word_encrypt(stripped_word)
+        
+        # if stripped_word.isdigit():  # Leave numbers unchanged
+        #     transformed_word = stripped_word
+        # else:
+        #     transformed_word = (
+        #         pig_latin_word_decrypt(stripped_word) if decrypt else pig_latin_word_encrypt(stripped_word)
+        #     )
+
+        transformed_words.append(prefix + transformed_word + suffix)
 
     return " ".join(transformed_words)

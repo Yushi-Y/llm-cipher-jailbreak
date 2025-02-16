@@ -13,29 +13,47 @@ def load_model(model_name):
 
 
 def translate_with_llm(input_text, model_name, translation_type):
-    """Sends text to an open-source model for translation using chat template."""
+    """Sends text to an open-source model for translation using the appropriate chat template."""
     tokenizer, model = load_model(model_name)
-
     model_device = next(model.parameters()).device
 
-    messages = [
-        {"role": "system", "content": instruction_prompts[translation_type]["system"]},
-        {"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}
-    ]
+    # Check if the model supports chat templates
+    has_chat_template = hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template is not None
+    is_gemma = "gemma" in model_name.lower()  # Detect Gemma models
 
-    # Apply chat template for proper formatting
-    tokenized_chat = tokenizer.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_tensors="pt",
-        padding=True
-    ).to(model_device)
+    if is_gemma:
+        # Gemma does NOT support system messages, only user-assistant alternation
+        messages = [{"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}]
+    else:
+        # LLaMA and other chat-based models support system messages
+        messages = [
+            {"role": "system", "content": instruction_prompts[translation_type]["system"]},
+            {"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}
+        ]
+
+    # Use chat template if available
+    if has_chat_template:
+        tokenized_chat = tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,  # Ensures proper turn alternation for Gemma
+            return_tensors="pt",
+            padding=True
+        ).to(model_device)
+    else:
+        # Fallback for models without chat templates (standard prompt)
+        formatted_prompt = instruction_prompts[translation_type]["user"].format(input_text=input_text)
+        tokenized_chat = tokenizer(
+            formatted_prompt,
+            return_tensors="pt",
+            padding=True,
+            truncation=True
+        )["input_ids"].to(model_device)
 
     # Generate response
     outputs = model.generate(
         tokenized_chat,
-        max_new_tokens=100,
+        max_new_tokens=300,
         do_sample=False
     )
 
@@ -43,11 +61,15 @@ def translate_with_llm(input_text, model_name, translation_type):
     return translated_text
 
 
+
+
+
 def evaluate_translation(original_text, translated_text, translation_type, shift=3):
     """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation."""
     if "caesar" in translation_type:
         expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
     else:
+        #### DECRYPTION FUNCTION IS CURRENTLY BROKEN ####
         expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
 
     # Convert to lowercase to ignore case differences
@@ -58,7 +80,7 @@ def evaluate_translation(original_text, translated_text, translation_type, shift
 
 
 if __name__ == "__main__":
-    model_name = "meta-llama/Llama-3.1-8B-Instruct"  # Use IT model with safety alignment
+    model_name = "google/gemma-2-9b-it" # "meta-llama/Llama-3.1-8B-Instruct"  # Use IT model 
 
     # **Example 1: Translate natural language to Caesar Cipher**
     original_text = "Meet me at the park at midnight."
