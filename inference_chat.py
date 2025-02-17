@@ -1,8 +1,8 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from template_generation import instruction_prompts  
-from cipher_utils import caesar_cipher, pig_latin_cipher  # Import encryption functions
-
+from cipher_utils import caesar_cipher, pig_latin_cipher  
+import re
 
 def load_model(model_name):
     """Loads the open-source model and tokenizer."""
@@ -63,19 +63,61 @@ def translate_with_llm(input_text, model_name, translation_type):
 
 
 
-
 def evaluate_translation(original_text, translated_text, translation_type, shift=3):
-    """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation."""
+    """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation.
+    
+    - After locating the last occurrence of "the translation is" (case insensitive) in translated_text,
+      it extracts the portion after it and performs per-word matching against expected_output.
+    
+    - Computes word matching rate = (number of matched words) / (total words in expected_output).
+    
+    Returns:
+        word_matching_rate (float): Fraction of words correctly matched.
+        expected_output (str): The expected correct translation.
+    """
     if "caesar" in translation_type:
         expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
     else:
         #### DECRYPTION FUNCTION IS CURRENTLY BROKEN ####
         expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
 
-    # Convert to lowercase to ignore case differences
-    is_correct = expected_output.strip().lower() in translated_text.strip().lower()
+    # Convert both expected and translated outputs to lowercase and split into words
+    expected_words = expected_output.strip().lower().split()
     
-    return is_correct, expected_output
+    # Locate the last occurrence of "the translation is" (case insensitive)
+    match = re.search(r"(?i)(.*)\bthe translation is\b", translated_text)
+
+    if match:
+        # Extract everything after the last "the translation is"
+        extracted_text = translated_text[match.end():].strip().lower()
+    else:
+        # If "the translation is" is not found, compare entire translated_text
+        extracted_text = translated_text.strip().lower()
+    
+    translated_words = extracted_text.split()
+    
+    # Compute word matching count
+    matched_words = sum(1 for word in expected_words if word in translated_words)
+
+    # Compute word matching rate
+    word_matching_rate = matched_words / len(expected_words) if expected_words else 0
+
+    return word_matching_rate, expected_output
+
+
+
+# def evaluate_translation(original_text, translated_text, translation_type, shift=3):
+#     """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation."""
+#     if "caesar" in translation_type:
+#         expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
+#     else:
+#         #### DECRYPTION FUNCTION IS CURRENTLY BROKEN ####
+#         expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
+
+#     # Convert to lowercase to ignore case differences
+#     is_correct = expected_output.strip().lower() in translated_text.strip().lower()
+    
+#     return is_correct, expected_output
 
 
 

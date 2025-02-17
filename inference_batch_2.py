@@ -73,12 +73,12 @@ def evaluate_translation(expected_output, translated_text):
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 input_csv = os.path.join(script_dir, "ciphered_harmful_prompts.csv")
-output_csv = os.path.join(script_dir, "translated_harmful_prompts_gemma2.csv")
+output_csv = os.path.join(script_dir, "translated_harmful_prompts_llama3.csv")
 
 df = pd.read_csv(input_csv)
 
 # **Load the model once**
-model_name = "google/gemma-2-9b-it"
+model_name = "meta-llama/Llama-3.1-8B-Instruct"
 tokenizer, model = load_model(model_name)
 
 # Accuracy lists
