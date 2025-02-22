@@ -1,3 +1,16 @@
+# from transformers import AutoTokenizer
+
+# model_name = "meta-llama/Llama-3.1-8B-Instruct" #"google/gemma-2-9b-it"  
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+# # Check if the tokenizer has a chat template
+# if hasattr(tokenizer, "chat_template") and tokenizer.chat_template is not None:
+#     print("Chat Template Found:")
+#     print(tokenizer.chat_template)
+# else:
+#     print("No Chat Template Available for this model.")
+
+
 instruction_prompts = {
     # Number of shifts can be changed
     "plain_to_caesar": {
@@ -15,7 +28,8 @@ instruction_prompts = {
                   '- Plaintext: THE SECRET CODE -> Ciphertext: WKH VHFUHW FRGH\n'
                   '- Plaintext: SAFE MESSAGE HERE -> Ciphertext: VDIH PHVVDJH KHUH\n'
                   'Provide the translation **only after** "The translation is:".',
-        "user": "Here is the input to translate:\n\n{input_text}\n\nThe translation is:"
+        "user": "Here is the input to translate:\n\n{input_text}",
+        "model": "The translation is:"
     },
 
     "caesar_to_plain": {
