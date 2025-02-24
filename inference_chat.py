@@ -1,15 +1,20 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from template_generation import instruction_prompts  
-from cipher_utils import caesar_cipher, pig_latin_cipher  
+from cipher_utils import rot_cipher, pig_latin_cipher  
+from lcs_metrics import lcs_length, lcs_word_length
 import re
+
+
 
 def load_model(model_name):
     """Loads the open-source model and tokenizer."""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
+    tokenizer.pad_token = tokenizer.eos_token  # Set pad token to eos token
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
     return tokenizer, model
+
+
 
 
 def translate_with_llm(input_text, model_name, translation_type):
@@ -17,45 +22,45 @@ def translate_with_llm(input_text, model_name, translation_type):
     tokenizer, model = load_model(model_name)
     model_device = next(model.parameters()).device
 
-    # Check if the model supports chat templates
-    has_chat_template = hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template is not None
-    is_gemma = "gemma" in model_name.lower()  # Detect Gemma models
+    # Determine if the model is Gemma
+    is_gemma = "gemma" in model_name.lower()
 
     if is_gemma:
-        # Gemma does NOT support system messages, only user-assistant alternation
-        messages = [{"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}]
+        # Combine system and user instructions into one user message for Gemma
+        combined_prompt = instruction_prompts[translation_type]["system"] + "\n\n" + \
+                        instruction_prompts[translation_type]["user"].format(input_text=input_text) 
+                        # + "\n\n" + \ 
+                        # instruction_prompts[translation_type]["model"] # 'model' not needed here as 'model' will output this sentence anyway
+        messages = [{"role": "user", "content": combined_prompt},
+                    {"role": "model", "content": instruction_prompts[translation_type]["model"]}] # Adding this improves caesar encoding accuracy for gemma2
     else:
-        # LLaMA and other chat-based models support system messages
+        # Use system and user as separate messages for non-Gemma models
         messages = [
             {"role": "system", "content": instruction_prompts[translation_type]["system"]},
-            {"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)}
+            {"role": "user", "content": instruction_prompts[translation_type]["user"].format(input_text=input_text)},
+            {"role": "model", "content": instruction_prompts[translation_type]["model"]} # Adding this reduce COT printing of llama3 for decryption and improves accuracy (due to memorisation?). Using 'assistant' as in template for llama3 as role name does not reduce printing
         ]
-
     # Use chat template if available
-    if has_chat_template:
-        tokenized_chat = tokenizer.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=True,  # Ensures proper turn alternation for Gemma
-            return_tensors="pt",
-            padding=True
-        ).to(model_device)
-    else:
-        # Fallback for models without chat templates (standard prompt)
-        formatted_prompt = instruction_prompts[translation_type]["user"].format(input_text=input_text)
-        tokenized_chat = tokenizer(
-            formatted_prompt,
-            return_tensors="pt",
-            padding=True,
-            truncation=True
-        )["input_ids"].to(model_device)
+    tokenized_chat = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_tensors="pt",
+        padding=True
+    ).to(model_device)
+
+    # Explicitly set attention mask to ignore padding tokens
+    attention_mask = tokenized_chat.ne(tokenizer.pad_token_id).long() # Required for llama3
+
 
     # Generate response
     outputs = model.generate(
         tokenized_chat,
-        max_new_tokens=300,
+        attention_mask=attention_mask, 
+        max_new_tokens=400,
         do_sample=False
     )
+
 
     translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return translated_text
@@ -63,103 +68,145 @@ def translate_with_llm(input_text, model_name, translation_type):
 
 
 
-def evaluate_translation(original_text, translated_text, translation_type, shift=3):
-    """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation.
-    
-    - After locating the last occurrence of "the translation is" (case insensitive) in translated_text,
-      it extracts the portion after it and performs per-word matching against expected_output.
-    
-    - Computes word matching rate = (number of matched words) / (total words in expected_output).
-    
-    Returns:
-        word_matching_rate (float): Fraction of words correctly matched.
-        expected_output (str): The expected correct translation.
-    """
-    if "caesar" in translation_type:
-        expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
-    else:
-        #### DECRYPTION FUNCTION IS CURRENTLY BROKEN ####
-        expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
 
-    # Convert both expected and translated outputs to lowercase and split into words
-    expected_words = expected_output.strip().lower().split()
-    
-    # Locate the last occurrence of "the translation is" (case insensitive)
+def evaluate_translation_with_lcs(original_text, translated_text, translation_type, shift=3):
+    """Evaluates translation using both word and character-level LCS, ensuring case-insensitive comparison."""
+
+    # Generate expected output based on the cipher type
+    if "rot3" in translation_type:
+        expected_output = rot_cipher(original_text, 3, decrypt=("to_plain" in translation_type))
+    elif "rot13" in translation_type:
+        expected_output = rot_cipher(original_text, 13, decrypt=("to_plain" in translation_type))
+    else:
+        expected_output = pig_latin_cipher(original_text, decrypt=("pig_latin_to_plain" in translation_type))
+
+    # Locate the last occurrence of "the translation is"
     match = re.search(r"(?i)(.*)\bthe translation is\b", translated_text)
 
     if match:
-        # Extract everything after the last "the translation is"
-        extracted_text = translated_text[match.end():].strip().lower()
+        extracted_text = translated_text[match.end():].strip()
     else:
-        # If "the translation is" is not found, compare entire translated_text
-        extracted_text = translated_text.strip().lower()
+        # If "the translation is" is not found, compare the entire translated_text
+        extracted_text = translated_text.strip()
+
+    # Convert both to lowercase for **case-insensitive comparison**
+    expected_output_lower = expected_output.lower()
+    extracted_text_lower = extracted_text.lower()
+
+    # Compute LCS character-level metric
+    lcs_char_len = lcs_length(expected_output_lower, extracted_text_lower)
+    lcs_char_score = lcs_char_len / len(expected_output_lower) if len(expected_output_lower) > 0 else 0
+
+    # Compute LCS word-level metric
+    lcs_word_len = lcs_word_length(expected_output_lower, extracted_text_lower)
+    lcs_word_score = lcs_word_len / len(expected_output_lower.split()) if len(expected_output_lower.split()) > 0 else 0
+
+    return {
+        "LCS Character-Level Score": round(lcs_char_score, 4),
+        "LCS Word-Level Score": round(lcs_word_score, 4),
+        "Expected Output": expected_output
+    }
+
+
+
+
+# def evaluate_translation_word_matching(original_text, translated_text, translation_type, shift=3):
+#     """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation.
     
-    translated_words = extracted_text.split()
+#     - After locating the last occurrence of "the translation is" (case insensitive) in translated_text,
+#       it extracts the portion after it and performs per-word matching against expected_output.
     
-    # Compute word matching count
-    matched_words = sum(1 for word in expected_words if word in translated_words)
-
-    # Compute word matching rate
-    word_matching_rate = matched_words / len(expected_words) if expected_words else 0
-
-    return word_matching_rate, expected_output
-
-
-
-# def evaluate_translation(original_text, translated_text, translation_type, shift=3):
-#     """Evaluates the correctness of the translation based on direct Caesar cipher or Pig Latin transformation."""
+#     - Computes word matching rate = (number of matched words) / (total words in expected_output).
+    
+#     Returns:
+#         word_matching_rate (float): Fraction of words correctly matched.
+#         expected_output (str): The expected correct translation.
+#     """
 #     if "caesar" in translation_type:
 #         expected_output = caesar_cipher(original_text, shift, decrypt=(translation_type == "caesar_to_plain"))
 #     else:
 #         #### DECRYPTION FUNCTION IS CURRENTLY BROKEN ####
 #         expected_output = pig_latin_cipher(original_text, decrypt=(translation_type == "pig_latin_to_plain"))
 
-#     # Convert to lowercase to ignore case differences
-#     is_correct = expected_output.strip().lower() in translated_text.strip().lower()
+#     # Convert both expected and translated outputs to lowercase and split into words
+#     expected_words = expected_output.strip().lower().split()
     
-#     return is_correct, expected_output
+#     # Locate the last occurrence of "the translation is" 
+#     match = re.search(r"(?i)(.*)\bthe translation is\b", translated_text)
+
+#     if match:
+#         # Extract everything after the last "the translation is"
+#         extracted_text = translated_text[match.end():].strip().lower()
+#     else:
+#         # If "the translation is" is not found, compare entire translated_text
+#         extracted_text = translated_text.strip().lower()
+    
+#     translated_words = extracted_text.split()
+    
+#     # Compute word matching count
+#     matched_words = sum(1 for word in expected_words if word in translated_words)
+
+#     # Compute word matching rate
+#     word_matching_rate = matched_words / len(expected_words) if expected_words else 0
+
+#     return word_matching_rate, expected_output
 
 
 
+    
+
+def run_translation_test(model_name, input_text, task, expected_output=None):
+    """
+    Runs a translation test using the LLM and evaluates it using LCS.
+    
+    Args:
+        model_name (str): The model to use.
+        input_text (str): The text to translate.
+        task (str): The translation task (e.g., "plain_to_rot3", "rot3_to_plain").
+        expected_output (str, optional): The expected output for evaluation.
+    """
+    translated_text = translate_with_llm(input_text, model_name, task)
+    
+    print(f"**{task.replace('_', ' ').title()}**")
+    print(f"Input Text: {input_text}")
+    print(f"Translated Text: {translated_text}")
+
+    expected_output = expected_outputs.get(task, None)
+
+    evaluation = evaluate_translation_with_lcs(input_text, translated_text, task)
+    print("LCS Character-Level Score:", evaluation["LCS Character-Level Score"])
+    print("LCS Word-Level Score:", evaluation["LCS Word-Level Score"])
+
+    if expected_output and evaluation["LCS Character-Level Score"] < 1.0:
+        print("Expected Output:", expected_output)
+    print("\n")
+
+
+
+# Run tests for ROT3, ROT13, and Pig Latin translations
 if __name__ == "__main__":
-    model_name = "google/gemma-2-9b-it" # "meta-llama/Llama-3.1-8B-Instruct"  # Use IT model 
+    model_name = "google/gemma-2-9b-it"  # "meta-llama/Llama-3.1-8B-Instruct"
 
-    # **Example 1: Translate natural language to Caesar Cipher**
+    # Common test sentence
     original_text = "Meet me at the park at midnight."
-    ciphered_text = translate_with_llm(original_text, model_name, "plain_to_caesar")
-    print("Original Input:", original_text)
-    print("Caesar Cipher Output:", ciphered_text)
-    correct, expected = evaluate_translation(original_text, ciphered_text, "plain_to_caesar")
-    print("Correct Translation:", correct)
-    if not correct:
-        print("Expected Output:", expected)
 
-    # **Example 2: Translate Caesar Cipher back to natural language**
-    caesar_text = "PHHW PH DW WKH SDUN DW PLGQLJKW."
-    decoded_text = translate_with_llm(caesar_text, model_name, "caesar_to_plain")
-    print("Ciphered Input:", caesar_text)
-    print("Decoded Output:", decoded_text)
-    correct, expected = evaluate_translation(caesar_text, decoded_text, "caesar_to_plain")
-    print("Correct Translation:", correct)
-    if not correct:
-        print("Expected Output:", expected)
+    expected_outputs = {
+        "plain_to_rot3": "Phhw ph dw wkh sdun dw plgqljkw.",
+        "rot3_to_plain": original_text,
+        "plain_to_rot13": "Zrrg zr ng gur cnex ng zvqavtug.",
+        "rot13_to_plain": original_text,
+        "plain_to_pig_latin": "eetMay emay atay ethay arkpay atay idnightmay.",
+        "pig_latin_to_plain": original_text
+    }
 
-    # **Example 3: Translate natural language to Pig Latin**
-    original_pig_text = "Hello world this is Pig Latin"
-    pig_latin_text = translate_with_llm(original_pig_text, model_name, "plain_to_pig_latin")
-    print("Original Input:", original_pig_text)
-    print("Pig Latin Output:", pig_latin_text)
-    correct, expected = evaluate_translation(original_pig_text, pig_latin_text, "plain_to_pig_latin")
-    print("Correct Translation:", correct)
-    if not correct:
-        print("Expected Output:", expected)
+    # Run tests for Rot3
+    run_translation_test(model_name, original_text, "plain_to_rot3", expected_outputs)
+    run_translation_test(model_name, expected_outputs["plain_to_rot3"], "rot3_to_plain", expected_outputs)
 
-    # **Example 4: Translate Pig Latin back to natural language**
-    pig_latin_input = "Ellohay orldway isthay isay Igpay Atinlay"
-    plain_text = translate_with_llm(pig_latin_input, model_name, "pig_latin_to_plain")
-    print("Pig Latin Input:", pig_latin_input)
-    print("Decoded Output:", plain_text)
-    correct, expected = evaluate_translation(pig_latin_input, plain_text, "pig_latin_to_plain")
-    print("Correct Translation:", correct)
-    if not correct:
-        print("Expected Output:", expected)
+    # Run tests for Rot13
+    run_translation_test(model_name, original_text, "plain_to_rot13", expected_outputs)
+    run_translation_test(model_name, expected_outputs["plain_to_rot13"], "rot13_to_plain", expected_outputs)
+
+    # Run tests for Pig Latin
+    run_translation_test(model_name, original_text, "plain_to_pig_latin", expected_outputs)
+    run_translation_test(model_name, expected_outputs["plain_to_pig_latin"], "pig_latin_to_plain", expected_outputs)
