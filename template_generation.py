@@ -15,7 +15,7 @@ instruction_prompts = {
                   '- Plaintext: THE SECRET CODE -> Ciphertext: WKH VHFUHW FRGH\n'
                   '- Plaintext: SAFE MESSAGE HERE -> Ciphertext: VDIH PHVVDJH KHUH\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate:\n\n{input_text}\n\n",
+        "user": "Here is the English input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     },
 
@@ -35,7 +35,7 @@ instruction_prompts = {
                   '- Ciphertext: WKH VHFUHW FRGH -> Plaintext: THE SECRET CODE\n'
                   '- Ciphertext: VDIH PHVVDJH KHUH -> Plaintext: SAFE MESSAGE HERE\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate:\n\n{input_text}\n\n",
+        "user": "Here is the Rot3 input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     },
 
@@ -55,7 +55,7 @@ instruction_prompts = {
                   '- Plaintext: THE SECRET CODE -> Ciphertext: GUR FRPERG PBQR\n'
                   '- Plaintext: SAFE MESSAGE HERE -> Ciphertext: FNSR ZRFFNTR URER\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate using ROT13:\n\n{input_text}\n\n",
+        "user": "Here is the English input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     },
 
@@ -74,7 +74,7 @@ instruction_prompts = {
                   '- Ciphertext: GUR FRPERG PBQR -> Plaintext: THE SECRET CODE\n'
                   '- Ciphertext: FNSR ZRFFNTR URER -> Plaintext: SAFE MESSAGE HERE\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate using ROT13:\n\n{input_text}\n\n",
+        "user": "Here is the Rot13 input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     },
 
@@ -94,7 +94,7 @@ instruction_prompts = {
                   '- Plaintext: APPLE ORANGE -> Pig Latin: APPLEAY ORANGEAY\n'
                   '- Plaintext: SCHOOL IS FUN -> Pig Latin: OOLSCHAY ISAY UNFAY\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate:\n\n{input_text}\n\n",
+        "user": "Here is the English input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     },
 
@@ -112,7 +112,7 @@ instruction_prompts = {
                   '- Pig Latin: APPLEAY ORANGEAY -> Plaintext: APPLE ORANGE\n'
                   '- Pig Latin: OOLSCHAY ISAY UNFAY -> Plaintext: SCHOOL IS FUN\n'
                   'Provide the English translation **only after** "The translation is:".\n\n',
-        "user": "Here is the English input to translate:\n\n{input_text}\n\n",
+        "user": "Here is the Pig Latin input:\n\n{input_text}\n\n",
         "model": "The translation is:"
     }
 }

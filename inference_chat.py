@@ -2,8 +2,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from template_generation import instruction_prompts  
 from cipher_utils import rot_cipher, pig_latin_cipher  
-from lcs_metrics import lcs_length, lcs_word_length
+from lcs_metrics import remove_punctuation, lcs_length, lcs_word_length
 import re
+import string
 
 
 
@@ -68,44 +69,87 @@ def translate_with_llm(input_text, model_name, translation_type):
 
 
 
+def extract_after_last_translation(text):
+    """Extracts everything after the last occurrence of 'The translation is: model' or 'The translation is'.
+    If both 'The translation is: model' and 'The translation is' exist separately, extract from the later one.
+    If neither is found, return an empty string."""
+    
+    primary_keyword = "The translation is:\nmodel"
+    secondary_keyword = "The translation is:"
+    
+    primary_index = text.rfind(primary_keyword)
+    secondary_index = text.rfind(secondary_keyword)
+
+    # Determine the latest occurring keyword
+    if primary_index == -1 and secondary_index == -1:
+        return ""  # If neither is found, return an empty string
+    elif primary_index == -1:
+        last_index = secondary_index
+        keyword = secondary_keyword
+    elif secondary_index == -1:
+        last_index = primary_index
+        keyword = primary_keyword
+    else:
+        # If both appears, elect whichever appears later in the text
+        if primary_index > secondary_index:
+            last_index = primary_index
+            keyword = primary_keyword
+        else:
+            last_index = secondary_index
+            keyword = secondary_keyword
+
+    # Extract everything after the chosen keyword
+    extracted_text = text[last_index + len(keyword):].strip()
+    
+    return extracted_text if extracted_text else ""  # Always return a string
+
+
+
+
 
 def evaluate_translation_with_lcs(original_text, translated_text, translation_type, shift=3):
     """Evaluates translation using both word and character-level LCS, ensuring case-insensitive comparison."""
 
-    # Generate expected output based on the cipher type
+    # Generate output based on the cipher type
     if "rot3" in translation_type:
         expected_output = rot_cipher(original_text, 3, decrypt=("to_plain" in translation_type))
     elif "rot13" in translation_type:
         expected_output = rot_cipher(original_text, 13, decrypt=("to_plain" in translation_type))
+    elif "pig_latin" in translation_type:
+        expected_output = pig_latin_cipher(original_text, decrypt=False) if "to_plain" not in translation_type else "Meet me at the park at midnight."
     else:
-        expected_output = pig_latin_cipher(original_text, decrypt=("pig_latin_to_plain" in translation_type))
+        expected_output = original_text # Return input text if it is not a recognized cipher
 
-    # Locate the last occurrence of "the translation is"
-    match = re.search(r"(?i)(.*)\bthe translation is\b", translated_text)
 
-    if match:
-        extracted_text = translated_text[match.end():].strip()
-    else:
-        # If "the translation is" is not found, compare the entire translated_text
-        extracted_text = translated_text.strip()
+    # Extract text after the last occurrence of 'The translation is: model' or 'The translation is'
+    extracted_text = extract_after_last_translation(translated_text)
+    
+    print("[INFO] Extracted text:", extracted_text)
 
-    # Convert both to lowercase for **case-insensitive comparison**
-    expected_output_lower = expected_output.lower()
-    extracted_text_lower = extracted_text.lower()
+
+
+    # Convert both to lowercase and remove punctuation for case-insensitive comparison
+    expected_output_clean = remove_punctuation(expected_output.lower())
+    extracted_text_clean = remove_punctuation(extracted_text.lower())
 
     # Compute LCS character-level metric
-    lcs_char_len = lcs_length(expected_output_lower, extracted_text_lower)
-    lcs_char_score = lcs_char_len / len(expected_output_lower) if len(expected_output_lower) > 0 else 0
+    lcs_char_len = lcs_length(expected_output_clean, extracted_text_clean)
+    expected_output_clean_char_len = len(expected_output_clean.replace(" ", "")) # Remove all empty spaces to only count the number of characters
+    lcs_char_score = lcs_char_len / expected_output_clean_char_len if expected_output_clean_char_len > 0 else 0
+    print(lcs_char_len)
+    print(expected_output_clean_char_len)
 
     # Compute LCS word-level metric
-    lcs_word_len = lcs_word_length(expected_output_lower, extracted_text_lower)
-    lcs_word_score = lcs_word_len / len(expected_output_lower.split()) if len(expected_output_lower.split()) > 0 else 0
+    lcs_word_len = lcs_word_length(expected_output_clean, extracted_text_clean)
+    lcs_word_score = lcs_word_len / len(expected_output_clean.split()) if len(expected_output_clean.split()) > 0 else 0
 
     return {
         "LCS Character-Level Score": round(lcs_char_score, 4),
         "LCS Word-Level Score": round(lcs_word_score, 4),
         "Expected Output": expected_output
     }
+
+
 
 
 

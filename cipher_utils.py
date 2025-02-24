@@ -46,35 +46,41 @@ def pig_latin_cipher(text, decrypt=False):
             if char in vowels:
                 return word[i:] + word[:i] + "ay"
         
-        return word + "ay"  # If no vowels, return unchanged with "ay"
+        return word + "ay"  # If no vowels, add "ay" directly
     
 
-### THIS IS INCORRECT ###
-    # def pig_latin_word_decrypt(word):
-    #     """Converts a Pig Latin word back to English."""
-    #     if not word.endswith("ay"):
-    #         return word  # If not Pig Latin, return unchanged
+    ##### THIS IS BROKEN #####
+    def pig_latin_word_decrypt(word):
+        """Converts a Pig Latin word back to English."""
+        if not word.endswith("ay"):
+            return word  # If not Pig Latin, return unchanged
         
-    #     word = word[:-2]  # Remove "ay" at the end
+        word = word[:-2]  # Remove "ay" 
 
-    #     # Handle words that originally started with vowels
-    #     if word[-1] in "AEIOUaeiou":
-    #         return word  
+        # Handle words that originally started with vowels
+        if word[-1] in "AEIOUaeiou":
+            return word  
 
-    #     # Find consonant cluster moved to end and restore it to front
-    #     consonant_cluster = ""
-    #     for i in range(len(word) - 1, -1, -1):
-    #         if word[i] in "AEIOUaeiou":
-    #             break
-    #         consonant_cluster = word[i] + consonant_cluster  # Build consonant cluster
+        # Find consonant cluster moved to end and restore it to front
+        consonant_cluster = ""
+        for i in range(len(word) - 1, -1, -1):
+            if word[i] in "AEIOUaeiou":
+                break
+            consonant_cluster = word[i] + consonant_cluster  # Build consonant cluster
         
-    #     return consonant_cluster + word[:-len(consonant_cluster)]  # Move consonants back
+        return consonant_cluster + word[:-len(consonant_cluster)]  # Move consonants back
 
-    words = text.rstrip(".").split()  # Remove period only from the end of the sentence
-    transformed_words = [pig_latin_word_encrypt(word) for word in words]
 
-    result = " ".join(transformed_words)  # Do not append period back automatically
+    words = text.rstrip(".").split()  # Remove period from the end of the sentence
+    
+    if decrypt:
+        transformed_words = [pig_latin_word_decrypt(word) for word in words]
+    else:
+        transformed_words = [pig_latin_word_encrypt(word) for word in words]
+    
+    result = " ".join(transformed_words)  
     return result
+
 
 
 
