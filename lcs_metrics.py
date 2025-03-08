@@ -4,10 +4,14 @@ def remove_punctuation(s):
     """Removes all punctuation from a string."""
     return s.translate(str.maketrans('', '', string.punctuation))
 
+def lower_case(s):
+    """Return all letters lower-lettered."""
+    return s.lower()
 
 def lcs_length(s1, s2):
-    """Computes the length of the Longest Common Subsequence (LCS) at the character level. Spaces are not considered character match"""
+    """Computes the length of the Longest Common Subsequence (LCS) at the character level. Spaces are not considered character match."""
     s1, s2 = remove_punctuation(s1), remove_punctuation(s2)
+    s1, s2 = lower_case(s1), lower_case(s2)
     s1, s2 = s1.replace(" ", ""), s2.replace(" ", "") # Remove all empty spaces
     m, n = len(s1), len(s2)
     
@@ -27,6 +31,7 @@ def lcs_length(s1, s2):
 def lcs_word_length(s1, s2):
     """Computes the length of the Longest Common Subsequence (LCS) at the word level."""
     s1, s2 = remove_punctuation(s1), remove_punctuation(s2)
+    s1, s2 = lower_case(s1), lower_case(s2)
     words1 = s1.split()
     words2 = s2.split()
     m, n = len(words1), len(words2)
@@ -53,7 +58,7 @@ def lcs_word_length(s1, s2):
 # print(remove_punctuation(text2))  # Output: "Python 39 is awesome"
 
 
-# Unit tests for LCS functions
+#### Unit tests ####
 if __name__ == "__main__":
     s1 = "Meet me at the park at midnight."
     print(lcs_length(s1, "Meet me at the park at midnight"))
@@ -61,7 +66,7 @@ if __name__ == "__main__":
     print(lcs_length(s1, "hello world"))
 
     # Character-level LCS tests
-    assert lcs_length(s1, "Meet me at the park at midnight") == len(s1.replace(" ", "")) - 1
+    assert lcs_length(s1, "Meet me at the park at midnight") == len(s1.replace(" ", "")) - 1 # -1 is for punctuation
     assert lcs_length(s1, "Meet at the park at midnight.") == len("Meet at the park at midnight.".replace(" ", "")) - 1 
     assert lcs_length(s1, "Meet me at the park.") == len("Meet me at the park.".replace(" ", "")) - 1
     assert lcs_length(s1, "Meet at park midnight.") < len(s1.replace(" ", ""))  
