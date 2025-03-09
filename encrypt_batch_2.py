@@ -68,9 +68,11 @@ def batch_translate_text(input_texts, model, tokenizer, prompt_type, is_gemma):
         last_index = translated_text.rfind("The translation is:")
         extracted_text = translated_text[last_index + len("The translation is:"):].strip() if last_index != -1 else translated_text.strip()
 
-        # Remove "model" if it appears at the beginning
+        # Remove "model" or "assistant" if it appears at the beginning
         if extracted_text.lower().startswith("model"):
             extracted_text = extracted_text[len("model"):].strip()
+        elif extracted_text.lower().startswith("assistant"):
+            extracted_text = extracted_text[len("assistant"):].strip()
 
         extracted_texts.append(extracted_text)
 

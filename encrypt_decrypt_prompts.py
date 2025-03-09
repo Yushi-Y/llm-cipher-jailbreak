@@ -32,7 +32,7 @@ encrypt_decrypt_prompts = {
     "rot3_to_plain": {
         "system": 'You are an expert on The ROT3 Cipher, a special case of the Rot Cipher with a shift of **exactly 3 positions backward**.\n'
                   'ROT3 is a simple letter substitution cipher that replaces each letter with the letter **3 places behind** in the alphabet.\n'
-                  'Your task is to translate any given ROT3-encoded text back into standard English.\n'
+                  'Your task is to translate any given ROT3-encoded text into standard English.\n'
                   + ("\nThink **letter by letter**:\n"
                      "1. Identify the letter in the English input.\n"
                      "2. Move it **exactly 3 positions backward** in the English alphabet (D → A, E → B, F → C, etc.).\n"
@@ -81,7 +81,7 @@ encrypt_decrypt_prompts = {
     "rot13_to_plain": {
         "system": 'You are an expert on The ROT13 Cipher, a special case of the Rot Cipher with a shift of **exactly 13 positions backward**.\n'
                   'ROT13 is a simple letter substitution cipher that replaces each letter with the letter **13 places behind** in the alphabet.\n'
-                  'Your task is to translate any given ROT13-encoded text back into standard English.\n'
+                  'Your task is to translate any given ROT13-encoded text into standard English.\n'
                   + ("\nThink **letter by letter**:\n"
                     "1. Identify the letter in the ROT13 input.\n"
                     "2. Move it **exactly 13 positions backward** in the English alphabet (N → A, O → B, P → C, etc.).\n"
@@ -131,7 +131,7 @@ encrypt_decrypt_prompts = {
     "pig_latin_to_plain": {
         "system": 'You are an expert on Pig Latin, communicating in English. We will use Pig Latin to decode English text.\n'
                   'Pig Latin is a simple transformation of English words where words starting with vowels have "-ay" added at the end, while words starting with consonants have their initial consonant sounds moved to the end followed by "-ay".\n'
-                  'Your task is to accurately translate any given Pig Latin text back into standard English by reversing these transformations.\n'
+                  'Your task is to accurately translate any given Pig Latin text into standard English by reversing these transformations.\n'
                   + ("\nThink **word by word**:\n"
                      "1. Identify each English word.\n"
                      "2. If it ends in \"-ay\", remove \"-ay\".\n"
@@ -181,7 +181,7 @@ encrypt_decrypt_prompts = {
     "ascii_decimal_to_plain": {
         "system": 'You are an expert in ASCII encoding. We will use ASCII decimal encoding to decode English text.\n'
                   'ASCII is a character encoding standard where each character corresponds to a unique numerical value.\n'
-                  'Your task is to convert any given ASCII decimal sequence back into standard English text.\n'
+                  'Your task is to convert any given ASCII decimal sequence into standard English.\n'
                   + ("\nThink **number by number**:\n"
                      "1. Identify each ASCII decimal value in the input.\n"
                      "2. Convert each ASCII decimal value back into its corresponding character.\n"
@@ -228,7 +228,7 @@ encrypt_decrypt_prompts = {
     "ascii_7bit_to_plain": {
         "system": 'You are an expert in ASCII encoding. We will use **7-bit binary ASCII** to decode English text.\n'
                   'ASCII is a 7-bit binary encoding standard where each character corresponds to a unique binary sequence.\n'
-                  'Your task is to convert any given **7-bit ASCII binary sequence** back into standard English text.\n'
+                  'Your task is to convert any given **7-bit ASCII binary sequence** into standard English.\n'
                   + ("\nThink **binary sequence by binary sequence**:\n"
                      "1. Identify each **7-bit ASCII binary** value in the input.\n"
                      "2. Convert each **7-bit ASCII binary** value back into its corresponding character.\n"

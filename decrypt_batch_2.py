@@ -56,7 +56,7 @@ def batch_translate_text(input_texts, model, tokenizer, prompt_type, is_gemma):
         tokenized_chat,
         attention_mask=attention_mask, 
         # min_new_tokens=1,
-        max_new_tokens=500,
+        max_new_tokens=2000,
         do_sample=False
     )
 
@@ -68,9 +68,11 @@ def batch_translate_text(input_texts, model, tokenizer, prompt_type, is_gemma):
         last_index = translated_text.rfind("The translation is:")
         extracted_text = translated_text[last_index + len("The translation is:"):].strip() if last_index != -1 else translated_text.strip()
 
-        # Remove "model" if it appears at the beginning
+        # Remove "model" or "assistant" if it appears at the beginning
         if extracted_text.lower().startswith("model"):
             extracted_text = extracted_text[len("model"):].strip()
+        elif extracted_text.lower().startswith("assistant"):
+            extracted_text = extracted_text[len("assistant"):].strip()
 
         extracted_texts.append(extracted_text)
 
@@ -113,14 +115,14 @@ tokenizer, model = load_model(model_name)
 is_gemma = "gemma" in model_name.lower()
 
 cipher_list = ["rot3", "rot13", "pig_latin", "ascii_decimal", "ascii_7bit"]
-batch_size = 50  # Process batches of rows
+batch_size = 15  # Process batches of rows
 
 # Read input csv in chunks
 df_chunks = pd.read_csv(input_file, chunksize=batch_size)
 
 # If output file exists, delete to prevent appending to old results
-# if os.path.exists(output_file):
-#     os.remove(output_file)
+if os.path.exists(output_file):
+    os.remove(output_file)
 
 for chunk_idx, df_chunk in enumerate(df_chunks):
     print(f"Processing batch {chunk_idx + 1}...")
